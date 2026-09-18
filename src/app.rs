@@ -4,8 +4,8 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     backend::Backend,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    text::Line,
+    style::{Color, Style, Modifier},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Tabs},
     Frame, Terminal,
 };
@@ -106,19 +106,12 @@ impl App {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3),
+                Constraint::Length(1),
                 Constraint::Length(3),
                 Constraint::Min(1),
                 Constraint::Length(3),
             ])
             .split(area);
-
-        frame.render_widget(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Life Terminal "),
-            layout[0],
-        );
 
         let titles: Vec<Line> = self
             .sections
@@ -131,7 +124,10 @@ impl App {
                 .select(self.active_section)
                 .highlight_style(Style::default().fg(Color::Cyan))
                 .divider("  ")
-                .block(Block::default().borders(Borders::LEFT | Borders::RIGHT)),
+                .block(Block::bordered().title(Span::styled(
+                    "Life Terminal",
+                    Style::default().add_modifier(Modifier::BOLD)
+                ))),
             layout[1],
         );
 
