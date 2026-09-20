@@ -1,4 +1,5 @@
 mod app;
+pub mod db;
 mod event;
 mod sections;
 
@@ -15,7 +16,8 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 fn main() -> Result<()> {
     let mut terminal = TerminalSession::start()?;
-    let app_result = App::new().run(terminal.terminal_mut());
+    let database = db::Database::open("life-terminal.db")?;
+    let app_result = App::new(database).run(terminal.terminal_mut());
     let restore_result = terminal.restore();
 
     app_result?;

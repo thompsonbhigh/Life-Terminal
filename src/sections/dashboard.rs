@@ -1,9 +1,10 @@
 use crossterm::event::Event;
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    widgets::{Block, Borders, Paragraph, Wrap, Padding},
+    widgets::{Block, Borders, Padding, Paragraph, Wrap},
     Frame,
 };
+use crate::db::Database;
 
 use super::Section;
 
@@ -14,11 +15,11 @@ impl Section for Dashboard {
         "Dashboard"
     }
 
-    fn handle_event(&mut self, _: &Event) {}
+    fn handle_event(&mut self, _: &Event, database: &Database) {}
 
     fn update(&mut self) {}
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, database: &Database) {
         let columns = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
@@ -30,26 +31,29 @@ impl Section for Dashboard {
             .split(area);
 
         let tasks = Paragraph::new("• Review project\n• Buy groceries\n• Reply to email")
-          .block(Block::default()
-            .title(" Tasks ")
-            .borders(Borders::ALL)
-            .padding(Padding::proportional(1))
-        )
-          .wrap(Wrap { trim: true });
+            .block(
+                Block::default()
+                    .title(" Tasks ")
+                    .borders(Borders::ALL)
+                    .padding(Padding::proportional(1)),
+            )
+            .wrap(Wrap { trim: true });
 
         let goals = Paragraph::new("Rust TUI\n██████░░░░ 60%\n\nRun a 5K\n███░░░░░░░ 30%")
-            .block(Block::default()
-                .title(" Goals ")
-                .borders(Borders::ALL)
-                .padding(Padding::proportional(1))
+            .block(
+                Block::default()
+                    .title(" Goals ")
+                    .borders(Borders::ALL)
+                    .padding(Padding::proportional(1)),
             )
             .wrap(Wrap { trim: true });
 
         let habits = Paragraph::new("✓ Exercise\n✓ Read\n○ Meditate\n○ Journal")
-            .block(Block::default()
-                .title(" Habits ")
-                .borders(Borders::ALL)
-                .padding(Padding::proportional(1))
+            .block(
+                Block::default()
+                    .title(" Habits ")
+                    .borders(Borders::ALL)
+                    .padding(Padding::proportional(1)),
             )
             .wrap(Wrap { trim: true });
 

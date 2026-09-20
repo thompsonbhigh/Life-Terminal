@@ -1,0 +1,22 @@
+# Rust build output (keep Cargo.lock for reproducible application builds)
+/target/
+**/*.rs.bk
+
+# Local application data and SQLite sidecar files
+/life-terminal.db
+/life-terminal.db-journal
+/life-terminal.db-shm
+/life-terminal.db-wal
+
+# Local environment configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Editor temporary files and OS metadata
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

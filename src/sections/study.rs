@@ -4,6 +4,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
     Frame,
 };
+use crate::db::Database;
 
 use super::Section;
 
@@ -14,11 +15,11 @@ impl Section for Study {
         "Study"
     }
 
-    fn handle_event(&mut self, _: &Event) {}
+    fn handle_event(&mut self, _: &Event, database: &Database) {}
 
     fn update(&mut self) {}
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, database: &Database) {
         frame.render_widget(
             Paragraph::new("Study\n\nSection coming soon")
                 .block(Block::default().borders(Borders::ALL)),

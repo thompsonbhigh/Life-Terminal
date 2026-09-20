@@ -3,14 +3,15 @@ use std::{io, time::Duration};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style, Modifier},
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Tabs},
     Frame, Terminal,
 };
 
 use crate::{
+    db::Database,
     event,
     sections::{self, Section},
 };
@@ -18,14 +19,16 @@ use crate::{
 const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 pub struct App {
+    database: Database,
     sections: Vec<Box<dyn Section>>,
     active_section: usize,
     running: bool,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(database: Database) -> Self {
         Self {
+            database,
             sections: sections::default_sections(),
             active_section: 0,
             running: true,
@@ -61,7 +64,7 @@ impl App {
             return;
         }
 
-        self.active_section_mut().handle_event(&Event::Key(key));
+        self.sections[self.active_section].handle_event(&Event::Key(key), &self.database);
     }
 
     fn handle_global_key(&mut self, key: KeyEvent) -> bool {
@@ -103,6 +106,7 @@ impl App {
 
     fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
+        let task_count = self.database.list_tasks().map_or(0, |tasks| tasks.len());
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -126,16 +130,21 @@ impl App {
                 .divider("  ")
                 .block(Block::bordered().title(Span::styled(
                     "Life Terminal",
-                    Style::default().add_modifier(Modifier::BOLD)
+                    Style::default().add_modifier(Modifier::BOLD),
                 ))),
             layout[1],
         );
 
-        self.active_section_mut().render(frame, layout[2]);
+        let active_section = self.active_section;
+        let database = &self.database;
+
+        self.sections[active_section].render(frame, layout[2], database);
 
         frame.render_widget(
-            Paragraph::new("Tab: Next   Shift+Tab: Previous   1-6: Switch section   q: Quit")
-                .block(Block::default().borders(Borders::ALL)),
+            Paragraph::new(format!(
+                "   Tab: Next   Shift+Tab: Previous   1-6: Switch section   q: Quit"
+            ))
+            .block(Block::default().borders(Borders::ALL)),
             layout[3],
         );
     }
@@ -144,10 +153,12 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::App;
+    use crate::db::Database;
 
     #[test]
     fn navigation_wraps_between_sections() {
-        let mut app = App::new();
+        let database = Database::open(":memory:").unwrap();
+        let mut app = App::new(database);
         app.previous_section();
         assert_eq!(app.active_section, 5);
         app.next_section();
