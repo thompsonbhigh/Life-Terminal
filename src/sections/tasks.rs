@@ -2,8 +2,8 @@ use crate::db::Database;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
-    widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph},
+    style::{Color, Modifier, Style},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
     Frame,
 };
 use ratatui_textarea::TextArea;
@@ -12,8 +12,19 @@ use super::Section;
 
 #[derive(Default)]
 pub struct Tasks {
+    list_state: ListState,
     textarea: Option<TextArea<'static>>,
     error: Option<String>,
+}
+
+impl Tasks {
+    fn sync_selection(&mut self, task_count: usize) {
+        self.list_state.select(if task_count == 0 {
+            None
+        } else {
+            Some(self.list_state.selected().unwrap_or(0).min(task_count - 1))
+        });
+    }
 }
 
 impl Section for Tasks {
@@ -55,45 +66,102 @@ impl Section for Tasks {
                     textarea.input(*key);
                 }
             }
+        } else if matches!(
+            key.code,
+            KeyCode::Char('j' | 'k') | KeyCode::Down | KeyCode::Up
+        ) {
+            if let Ok(tasks) = database.list_tasks() {
+                self.sync_selection(tasks.len());
+                if let Some(selected) = self.list_state.selected() {
+                    let next = match key.code {
+                        KeyCode::Char('j') | KeyCode::Down => (selected + 1).min(tasks.len() - 1),
+                        _ => selected.saturating_sub(1),
+                    };
+                    self.list_state.select(Some(next));
+                }
+            }
         } else if key.code == KeyCode::Char('a') {
             let mut textarea = TextArea::default();
-            textarea.set_block(Block::default()
-                .title("Add a task")
-                .borders(Borders::ALL)
-                .border_style(Style::default().bg(Color::Black))
-        );
+            textarea.set_block(
+                Block::default()
+                    .title("Add a task")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().bg(Color::Black)),
+            );
             textarea.set_placeholder_text("Enter a task");
             textarea.set_cursor_line_style(Style::default());
             self.textarea = Some(textarea);
             self.error = None;
+        } else if key.code == KeyCode::Char(' ') {
+            if let Ok(tasks) = database.list_tasks() {
+                if let Some(task) = self
+                    .list_state
+                    .selected()
+                    .and_then(|index| tasks.get(index))
+                {
+                    if let Err(error) = database.toggle_task(task.id) {
+                        self.error = Some(format!("Could not update task: {error}"));
+                    }
+                }
+            }
+        } else if key.code == KeyCode::Char('d') {
+            if let Ok(tasks) = database.list_tasks() {
+                if let Some(task) = self
+                    .list_state
+                    .selected()
+                    .and_then(|index| tasks.get(index))
+                {
+                    if let Err(error) = database.delete_task(task.id) {
+                        self.error = Some(format!("Could not delete task: {error}"));
+                    }
+                }
+            }
         }
     }
 
     fn update(&mut self) {}
 
     fn render(&mut self, frame: &mut Frame, area: Rect, database: &Database) {
-        let content = match database.list_tasks() {
-            Ok(tasks) if tasks.is_empty() => "No tasks yet - press [a] to add one.".to_string(),
-            Ok(tasks) => tasks
-                .iter()
-                .map(|task| {
-                    let mark = if task.completed { "✓" } else { "○" };
-                    format!("{mark} {}", task.title)
-                })
-                .collect::<Vec<_>>()
-                .join("\n"),
-            Err(error) => format!("Could not load tasks: {error}"),
-        };
+        let tasks = database.list_tasks();
 
         let panes = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Min(30), Constraint::Length(24)])
             .split(area);
 
-        frame.render_widget(
-            Paragraph::new(content).block(Block::bordered().title("Tasks")),
-            panes[0],
-        );
+        let block = Block::bordered()
+            .title("Tasks")
+            .padding(Padding::proportional(1));
+        match tasks {
+            Ok(tasks) if !tasks.is_empty() => {
+                self.sync_selection(tasks.len());
+                let items = tasks.iter().map(|task| {
+                    let mark = if task.completed { "✓" } else { "○" };
+                    ListItem::new(format!("{mark} {}", task.title))
+                });
+                frame.render_stateful_widget(
+                    List::new(items)
+                        .block(block)
+                        .highlight_style(
+                            Style::default()
+                                .bg(Color::Cyan)
+                                .fg(Color::Black)
+                                .add_modifier(Modifier::BOLD),
+                        )
+                        .highlight_symbol("> "),
+                    panes[0],
+                    &mut self.list_state,
+                );
+            }
+            result => {
+                self.list_state.select(None);
+                let message = match result {
+                    Ok(_) => "No tasks yet - press [a] to add one.".to_string(),
+                    Err(error) => format!("Could not load tasks: {error}"),
+                };
+                frame.render_widget(Paragraph::new(message).block(block), panes[0]);
+            }
+        }
 
         frame.render_widget(
             Paragraph::new(
@@ -103,7 +171,8 @@ impl Section for Tasks {
                \n\
                 [Space] Complete\n\
                \n\
-                [↑/↓] Select",
+                [j/↓] Next task\n\
+                [k/↑] Previous task",
             )
             .block(
                 Block::bordered()
@@ -115,8 +184,8 @@ impl Section for Tasks {
 
         if let Some(textarea) = &self.textarea {
             let task_area = panes[0];
-            let width = area.width.min(60);
-            let height = area.height.min(7);
+            let width = task_area.width.min(60);
+            let height = task_area.height.min(7);
             let popup = Rect::new(
                 task_area.x + (task_area.width - width) / 2,
                 task_area.y + (task_area.height - height) / 2,

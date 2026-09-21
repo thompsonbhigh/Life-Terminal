@@ -29,8 +29,21 @@ impl Section for Dashboard {
             ])
             .spacing(3)
             .split(area);
+        
+        let content = match database.list_tasks() {
+            Ok(tasks) if tasks.is_empty() => "No tasks yet - press [a] to add one.".to_string(),
+            Ok(tasks) => tasks
+                .iter()
+                .map(|task| {
+                    let mark = if task.completed { "✓" } else { "○" };
+                    format!("{mark} {}", task.title)
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Err(error) => format!("Could not load tasks: {error}"),
+        };
 
-        let tasks = Paragraph::new("• Review project\n• Buy groceries\n• Reply to email")
+        let tasks = Paragraph::new(content)
             .block(
                 Block::default()
                     .title(" Tasks ")

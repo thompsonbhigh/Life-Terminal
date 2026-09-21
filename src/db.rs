@@ -38,12 +38,18 @@ impl Database {
         Ok(())
     }
 
+    pub fn delete_task(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
     pub fn list_tasks(&self) -> Result<Vec<Task>> {
         let mut statement = self.conn.prepare(
             "
             SELECT id, title, completed
             FROM tasks
-            ORDER BY completed, created_at DESC, id DESC
+            ORDER BY created_at DESC, id DESC
             ",
         )?;
 
