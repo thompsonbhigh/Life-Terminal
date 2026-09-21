@@ -35,7 +35,10 @@ impl App {
         }
     }
 
-    pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
+    pub fn run<B: Backend<Error = io::Error>>(
+        &mut self,
+        terminal: &mut Terminal<B>,
+    ) -> io::Result<()> {
         while self.running {
             terminal.draw(|frame| self.render(frame))?;
 
@@ -60,7 +63,7 @@ impl App {
             return;
         }
 
-        if self.handle_global_key(key) {
+        if !self.sections[self.active_section].captures_input() && self.handle_global_key(key) {
             return;
         }
 
@@ -141,9 +144,11 @@ impl App {
         self.sections[active_section].render(frame, layout[2], database);
 
         frame.render_widget(
-            Paragraph::new(format!(
+            Paragraph::new(if self.sections[active_section].captures_input() {
+                "   Enter: Save task   Esc: Cancel"
+            } else {
                 "   Tab: Next   Shift+Tab: Previous   1-6: Switch section   q: Quit"
-            ))
+            })
             .block(Block::default().borders(Borders::ALL)),
             layout[3],
         );
@@ -163,5 +168,49 @@ mod tests {
         assert_eq!(app.active_section, 5);
         app.next_section();
         assert_eq!(app.active_section, 0);
+    }
+    #[test]
+    fn task_popup_captures_shortcuts_and_saves() {
+        use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+        let mut app = App::new(Database::open(":memory:").unwrap());
+        let press = |app: &mut App, code| {
+            app.handle_event(Event::Key(KeyEvent::new(code, KeyModifiers::NONE)));
+        };
+        press(&mut app, KeyCode::Char('2'));
+        press(&mut app, KeyCode::Char('a'));
+        press(&mut app, KeyCode::Char('q'));
+        press(&mut app, KeyCode::Char('1'));
+        press(&mut app, KeyCode::Tab);
+        assert!(app.running);
+        assert_eq!(app.active_section, 1);
+        press(&mut app, KeyCode::Enter);
+        assert_eq!(app.database.list_tasks().unwrap()[0].title, "q1");
+        assert!(!app.sections[1].captures_input());
+        press(&mut app, KeyCode::Char('q'));
+        assert!(!app.running);
+    }
+
+    #[test]
+    fn task_popup_renders_and_cancels_without_saving() {
+        use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+        use ratatui::{backend::TestBackend, Terminal};
+        let mut app = App::new(Database::open(":memory:").unwrap());
+        app.active_section = 1;
+        for code in [KeyCode::Char('a'), KeyCode::Char('x')] {
+            app.handle_event(Event::Key(KeyEvent::new(code, KeyModifiers::NONE)));
+        }
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|frame| app.render(frame)).unwrap();
+        let screen: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(screen.contains("Add a task"));
+        app.handle_event(Event::Key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
+        assert!(!app.sections[1].captures_input());
+        assert!(app.database.list_tasks().unwrap().is_empty());
     }
 }
