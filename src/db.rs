@@ -7,6 +7,14 @@ pub struct Task {
     pub completed: bool,
 }
 
+pub struct Goal {
+    pub id: i64,
+    pub title: String,
+    pub completed: bool,
+    pub progress: i64,
+    pub subtask_count: i64,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -25,6 +33,26 @@ impl Database {
                 title      TEXT NOT NULL,
                 completed  INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            ",
+            "
+            CREATE TABLE IF NOT EXISTS goals (
+                id            INTEGER PRIMARY KEY,
+                title         TEXT NOT NULL,
+                completed     INTEGER NOT NULL DEFAULT 0,
+                progress      INTEGER NOT NULL DEFAULT 0,
+                subtask_count INTEGER NOT NULL DEFAULT 0,
+                created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            ",
+            "
+            CREATE TABLE IF NOT EXISTS goal_subtasks (
+                id         INTEGER PRIMARY KEY,
+                goal_id    INTEGER NOT NULL,
+                title      TEXT NOT NULL,
+                completed  INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(goal_id) REFERENCES goals(id)
             );
             ",
         )?;
@@ -72,6 +100,22 @@ impl Database {
             params![id],
         )?;
         Ok(())
+    }
+
+    pub fn add_goal(&self, title: &str) -> Result<()> {
+        self.conn
+            .execute("INSERT INTO goals (title) VALUES (?1)", params![title])?;
+        Ok(())
+    }
+
+    pub fn list_goals(&self) -> Result<Vec<Goal>> {
+        let mut statement = self.conn.prepare(
+            "
+            SELECT id, title, completed, progress, subtask_count
+            FROM goals
+            ORDER BY created_at DESC, id DESC
+            ",
+        )?;
     }
 }
 
