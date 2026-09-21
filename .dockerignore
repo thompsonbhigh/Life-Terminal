@@ -1,0 +1,6 @@
+# Only send the files needed to compile the application.
+*
+!Cargo.toml
+!Cargo.lock
+!src/
+!src/**

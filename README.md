@@ -39,6 +39,9 @@ workflows.
 
 ## Requirements
 
+For Docker setup, skip to [Run with Docker](#run-with-docker); Rust is only
+required for running locally.
+
 - Rust stable, including Cargo
 - A terminal with Unicode box-drawing character support
 
@@ -62,6 +65,40 @@ git clone https://github.com/YOUR-USERNAME/life-terminal.git
 cd life-terminal
 cargo run
 ```
+
+## Run with Docker
+
+Install Docker Engine with the Compose plugin on Linux, or Docker Desktop on
+macOS/Windows (using Linux containers). From this repository's directory, run:
+
+```bash
+docker compose run --rm --build life-terminal
+```
+
+Press `q` to exit. Run the same command again to reopen the app. This is an
+interactive terminal application, so launch it in a terminal rather than as a
+background service. No ports need to be exposed.
+
+The image builds from source for the host architecture, including x86-64 and
+ARM64. Rust and build tools are included only in the build stage; the app runs
+as a non-root user in the final image.
+
+Your database is saved at `/data/life-terminal.db` in the named
+`life-terminal-data` volume managed by Compose. It survives container removal
+and image rebuilds. `docker compose down --volumes` deletes this saved data.
+The database in your local checkout is not copied into the image, and Docker
+volumes do not automatically sync between devices.
+
+Without Compose, use:
+
+```bash
+docker build -t life-terminal .
+docker run --rm -it --mount source=life-terminal-data,target=/data life-terminal
+```
+
+The `-it` flags are required for keyboard input and terminal rendering. The
+plain Docker command uses a separate volume from Compose's project-prefixed
+volume, so use the same launch method to keep accessing the same data.
 
 ## Controls
 

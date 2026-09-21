@@ -1,0 +1,10 @@
+services:
+  life-terminal:
+    build: .
+    stdin_open: true
+    tty: true
+    volumes:
+      - life-terminal-data:/data
+
+volumes:
+  life-terminal-data:
