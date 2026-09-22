@@ -112,14 +112,24 @@ impl Database {
     }
 
     pub fn add_subtask(&self, id: i64, title: &str) -> Result<()> {
-        self.conn
-            .execute("INSERT INTO goal_subtasks (goal_id, title) VALUES (?1, ?2)", params![id, title])?;
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("INSERT INTO goal_subtasks (goal_id, title) VALUES (?1, ?2)", params![id, title])?;
+        tx.execute("UPDATE goals SET subtask_count = subtask_count + 1 WHERE id = ?1", params![id])?;
+        tx.commit();
         Ok(())
     }
 
     pub fn delete_goal(&self, id: i64) -> Result<()> {
         self.conn
             .execute("DELETE FROM goals WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn delete_subtask(&self, id: i64, goal_id: i64) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM goal_subtasks WHERE id = ?1", params![id])?;
+        tx.execute("UPDATE goals SET subtask_count = subtask_count - 1 WHERE id = ?1", params![goal_id])?;
+        tx.commit();
         Ok(())
     }
 
@@ -152,12 +162,13 @@ impl Database {
             "
             SELECT id, goal_id, title, completed 
             FROM goal_subtasks
+            WHERE goal_id = ?1
             ORDER BY goal_id DESC, created_at DESC
             ",
         )?;
 
         let subtasks = statement
-            .query_map([], |row| {
+            .query_map(params![id], |row| {
                 Ok(SubTask {
                     id: row.get(0)?,
                     goal_id: row.get(1)?,
@@ -175,6 +186,21 @@ impl Database {
             "UPDATE goals SET completed = NOT completed WHERE id = ?1",
             params![id],
         )?;
+        Ok(())
+    }
+
+    pub fn toggle_subtask(&self, id: i64, goal_id: i64) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?; 
+        tx.execute("UPDATE goal_subtasks SET completed = NOT completed WHERE id = ?1", params![id])?;
+        tx.execute("UPDATE goals SET subtask_count = (
+            SELECT COUNT(*) FROM goal_subtasks WHERE goal_id = ?1
+        ),
+        progress = (
+            SELECT COUNT(*) FROM goal_subtasks WHERE goal_id = ?1 AND completed = 1
+        )
+        WHERE id = ?1
+        ", params![goal_id])?;
+        tx.commit();
         Ok(())
     }
 }

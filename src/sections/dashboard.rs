@@ -31,7 +31,7 @@ impl Section for Dashboard {
             .split(area);
         
         let content = match database.list_tasks() {
-            Ok(tasks) if tasks.is_empty() => "No tasks yet - press [a] to add one.".to_string(),
+            Ok(tasks) if tasks.is_empty() => "No tasks yet".to_string(),
             Ok(tasks) => tasks
                 .iter()
                 .map(|task| {
