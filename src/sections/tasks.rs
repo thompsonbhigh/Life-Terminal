@@ -1,4 +1,6 @@
 use crate::db::Database;
+use crate::widgets::Popup;
+
 use derive_setters::Setters;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
@@ -19,34 +21,6 @@ pub struct Tasks {
     textarea: Option<TextArea<'static>>,
     error: Option<String>,
     popup: Option<Popup<'static>>,
-}
-
-#[derive(Debug, Default, Setters)]
-struct Popup<'a> {
-    #[setters(into)]
-    title: Line<'a>,
-    #[setters(into)]
-    content: Text<'a>,
-    border_style: Style,
-    title_style: Style,
-    style: Style,
-}
-
-impl Widget for &Popup<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        // ensure that all cells under the popup are cleared to avoid leaking content
-        Clear.render(area, buf);
-        let block = Block::new()
-            .title(self.title.clone())
-            .title_style(self.title_style)
-            .borders(Borders::ALL)
-            .border_style(self.border_style);
-        Paragraph::new(self.content.clone())
-            .wrap(Wrap { trim: true })
-            .style(self.style)
-            .block(block)
-            .render(area, buf);
-    }
 }
 
 impl Tasks {
@@ -145,7 +119,7 @@ impl Section for Tasks {
                 Block::default()
                     .title("Add a task")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().bg(Color::Black)),
+                    .border_style(Style::default()),
             );
             textarea.set_placeholder_text("Enter a task");
             textarea.set_cursor_line_style(Style::default());
