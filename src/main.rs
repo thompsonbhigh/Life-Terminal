@@ -2,6 +2,7 @@ mod app;
 pub mod db;
 mod event;
 mod sections;
+mod widgets;
 
 use std::{error::Error, io};
 

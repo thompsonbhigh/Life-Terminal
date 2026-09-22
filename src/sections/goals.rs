@@ -1,4 +1,5 @@
 use crate::db::Database;
+use crate::widgets::Popup;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,6 +16,7 @@ pub struct Goals {
     list_state: ListState,
     textarea: Option<TextArea<'static>>,
     error: Option<String>,
+    popup: Option<Popup<'static>>,
 }
 
 impl Goals {
@@ -33,13 +35,36 @@ impl Section for Goals {
     }
 
     fn captures_input(&self) -> bool {
-        self.textarea.is_some()
+        self.textarea.is_some() || self.popup.is_some()
     }
 
     fn handle_event(&mut self, event: &Event, database: &Database) {
         let Event::Key(key) = event else { return };
 
-        if let Some(textarea) = &mut self.textarea {
+        if self.popup.is_some() {
+            match key.code {
+                KeyCode::Esc => {
+                    self.popup = None;
+                    self.error = None;
+                }
+                KeyCode::Char('d') => {
+                    self.error = None;
+                    if let Ok(goals) = database.list_goals() {
+                        if let Some(goal) = self
+                            .list_state
+                            .selected()
+                            .and_then(|index| goals.get(index))
+                        {
+                            if let Err(error) = database.delete_goal(goal.id) {
+                                self.error = Some(format!("Could not delete goal: {error}"));
+                            }
+                        }
+                    }
+                    self.popup = None;
+                }
+                _ => {}
+            }
+        } else if let Some(textarea) = &mut self.textarea {
             match key.code {
                 KeyCode::Esc => {
                     self.textarea = None;
@@ -86,7 +111,7 @@ impl Section for Goals {
                 Block::default()
                     .title("Add a goal")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().bg(Color::Black)),
+                    .border_style(Style::default()),
             );
             textarea.set_placeholder_text("Enter a goal");
             textarea.set_cursor_line_style(Style::default());
@@ -105,17 +130,14 @@ impl Section for Goals {
                 }
             }
         } else if key.code == KeyCode::Char('d') {
-            if let Ok(goals) = database.list_goals() {
-                if let Some(goal) = self
-                    .list_state
-                    .selected()
-                    .and_then(|index| goals.get(index))
-                {
-                    if let Err(error) = database.delete_goal(goal.id) {
-                        self.error = Some(format!("Could not delete goal: {error}"));
-                    }
-                }
-            }
+            let popup = Popup::default()
+                .content("Are you sure you want to delete this goal? (d/Esc)")
+                .style(Style::new().red())
+                .title("Confirm Delete")
+                .title_style(Style::new().red().bold())
+                .border_style(Style::new().red());
+            self.popup = Some(popup);
+            self.error = None;
         }
     }
 
@@ -177,11 +199,25 @@ impl Section for Goals {
             )
             .block(
                 Block::bordered()
-                    .title("goal Controls")
+                    .title("Goal Controls")
                     .padding(Padding::proportional(1)),
             ),
             panes[1],
         );
+
+        if let Some(popup) = &self.popup {
+            let popup_area = panes[0];
+            let width = popup_area.width.min(60);
+            let height = popup_area.height.min(7);
+            let popup_rect = Rect::new(
+                popup_area.x + (popup_area.width - width) / 2,
+                popup_area.y + (popup_area.height - height) / 2,
+                width,
+                height,
+            );
+            let rows = Layout::vertical([Constraint::Min(3), Constraint::Length(2)]).split(popup_rect);
+            frame.render_widget(popup, rows[0]);
+        }
 
         if let Some(textarea) = &self.textarea {
             let goal_area = panes[0];
