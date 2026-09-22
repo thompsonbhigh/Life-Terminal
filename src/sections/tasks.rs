@@ -1,9 +1,12 @@
 use crate::db::Database;
+use derive_setters::Setters;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
+    text::{Line, Text},
+    buffer::{Buffer},
+    widgets::{Block, Borders, Wrap, Clear, List, Widget, ListItem, ListState, Padding, Paragraph},
     Frame,
 };
 use ratatui_textarea::TextArea;
@@ -15,6 +18,35 @@ pub struct Tasks {
     list_state: ListState,
     textarea: Option<TextArea<'static>>,
     error: Option<String>,
+    popup: Option<Popup<'static>>,
+}
+
+#[derive(Debug, Default, Setters)]
+struct Popup<'a> {
+    #[setters(into)]
+    title: Line<'a>,
+    #[setters(into)]
+    content: Text<'a>,
+    border_style: Style,
+    title_style: Style,
+    style: Style,
+}
+
+impl Widget for &Popup<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        // ensure that all cells under the popup are cleared to avoid leaking content
+        Clear.render(area, buf);
+        let block = Block::new()
+            .title(self.title.clone())
+            .title_style(self.title_style)
+            .borders(Borders::ALL)
+            .border_style(self.border_style);
+        Paragraph::new(self.content.clone())
+            .wrap(Wrap { trim: true })
+            .style(self.style)
+            .block(block)
+            .render(area, buf);
+    }
 }
 
 impl Tasks {
@@ -33,13 +65,40 @@ impl Section for Tasks {
     }
 
     fn captures_input(&self) -> bool {
-        self.textarea.is_some()
+        self.textarea.is_some() || self.popup.is_some()
     }
 
     fn handle_event(&mut self, event: &Event, database: &Database) {
         let Event::Key(key) = event else { return };
 
-        if let Some(textarea) = &mut self.textarea {
+        if let Some(popup) = &mut self.popup {
+            match key.code {
+                KeyCode::Esc => {
+                    self.popup = None;
+                    self.error = None;
+                }
+                KeyCode::Char('d') => {
+                    if let Ok(tasks) = database.list_tasks() {
+                        if let Some(task) = self
+                            .list_state
+                            .selected()
+                            .and_then(|index| tasks.get(index))
+                        {
+                            if let Err(error) = database.delete_task(task.id) {
+                                self.error = Some(format!("Could not delete task: {error}"));
+                            }
+                        }
+                    }
+                    self.popup = None;
+                    self.error = None;
+                }
+                _ => {
+
+                }
+            }
+        }
+
+        else if let Some(textarea) = &mut self.textarea {
             match key.code {
                 KeyCode::Esc => {
                     self.textarea = None;
@@ -105,17 +164,14 @@ impl Section for Tasks {
                 }
             }
         } else if key.code == KeyCode::Char('d') {
-            if let Ok(tasks) = database.list_tasks() {
-                if let Some(task) = self
-                    .list_state
-                    .selected()
-                    .and_then(|index| tasks.get(index))
-                {
-                    if let Err(error) = database.delete_task(task.id) {
-                        self.error = Some(format!("Could not delete task: {error}"));
-                    }
-                }
-            }
+            let popup = Popup::default()
+                .content("Are you sure you want to delete this task? (d/Esc)")
+                .style(Style::new().red())
+                .title("Confirm Delete")
+                .title_style(Style::new().red().bold())
+                .border_style(Style::new().red());
+            self.popup = Some(popup);
+            self.error = None;
         }
     }
 
@@ -126,7 +182,7 @@ impl Section for Tasks {
 
         let panes = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(30), Constraint::Length(24)])
+            .constraints([Constraint::Min(30), Constraint::Length(25)])
             .split(area);
 
         let block = Block::bordered()
@@ -172,6 +228,7 @@ impl Section for Tasks {
                 [Space] Complete\n\
                \n\
                 [j/↓] Next task\n\
+                \n\
                 [k/↑] Previous task",
             )
             .block(
@@ -181,6 +238,20 @@ impl Section for Tasks {
             ),
             panes[1],
         );
+
+        if let Some(popup) = &self.popup {
+            let popup_area = panes[0];
+            let width = popup_area.width.min(60);
+            let height = popup_area.height.min(7);
+            let popup_rect = Rect::new(
+                popup_area.x + (popup_area.width - width) / 2,
+                popup_area.y + (popup_area.height - height) / 2,
+                width,
+                height,
+            );
+            let rows = Layout::vertical([Constraint::Min(3), Constraint::Length(2)]).split(popup_rect);
+            frame.render_widget(popup, rows[0]);
+        }
 
         if let Some(textarea) = &self.textarea {
             let task_area = panes[0];

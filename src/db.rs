@@ -34,8 +34,6 @@ impl Database {
                 completed  INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
-            ",
-            "
             CREATE TABLE IF NOT EXISTS goals (
                 id            INTEGER PRIMARY KEY,
                 title         TEXT NOT NULL,
@@ -44,15 +42,13 @@ impl Database {
                 subtask_count INTEGER NOT NULL DEFAULT 0,
                 created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
-            ",
-            "
             CREATE TABLE IF NOT EXISTS goal_subtasks (
                 id         INTEGER PRIMARY KEY,
                 goal_id    INTEGER NOT NULL,
                 title      TEXT NOT NULL,
                 completed  INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(goal_id) REFERENCES goals(id)
+                FOREIGN KEY(goal_id) REFERENCES goals(id) ON DELETE CASCADE
             );
             ",
         )?;
@@ -108,6 +104,12 @@ impl Database {
         Ok(())
     }
 
+    pub fn delete_goal(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM goals WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
     pub fn list_goals(&self) -> Result<Vec<Goal>> {
         let mut statement = self.conn.prepare(
             "
@@ -116,6 +118,28 @@ impl Database {
             ORDER BY created_at DESC, id DESC
             ",
         )?;
+
+        let goals = statement
+            .query_map([], |row| {
+                Ok(Goal {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    completed: row.get::<_, i64>(2)? != 0,
+                    progress: row.get(3)?,
+                    subtask_count: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(goals)
+    }
+
+    pub fn toggle_goal(&self, id: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE goals SET completed = NOT completed WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(())
     }
 }
 

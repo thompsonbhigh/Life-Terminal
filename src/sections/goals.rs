@@ -68,7 +68,7 @@ impl Section for Goals {
             }
         } else if matches!(
             key.code,
-            KeyCode::Char('j' | 'k') | KeyCode::Down | KeyCode::Up
+                KeyCode::Char('j' | 'k') | KeyCode::Down | KeyCode::Up
         ) {
             if let Ok(goals) = database.list_goals() {
                 self.sync_selection(goals.len());
@@ -126,7 +126,7 @@ impl Section for Goals {
 
         let panes = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(30), Constraint::Length(24)])
+            .constraints([Constraint::Min(30), Constraint::Length(25)])
             .split(area);
 
         let block = Block::bordered()
