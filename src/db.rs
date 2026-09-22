@@ -15,6 +15,13 @@ pub struct Goal {
     pub subtask_count: i64,
 }
 
+pub struct SubTask {
+    pub id: i64,
+    pub goal_id: i64,
+    pub title: String,
+    pub completed: bool,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -104,6 +111,12 @@ impl Database {
         Ok(())
     }
 
+    pub fn add_subtask(&self, id: i64, title: &str) -> Result<()> {
+        self.conn
+            .execute("INSERT INTO goal_subtasks (goal_id, title) VALUES (?1, ?2)", params![id, title])?;
+        Ok(())
+    }
+
     pub fn delete_goal(&self, id: i64) -> Result<()> {
         self.conn
             .execute("DELETE FROM goals WHERE id = ?1", params![id])?;
@@ -132,6 +145,29 @@ impl Database {
             .collect::<Result<Vec<_>>>()?;
 
         Ok(goals)
+    }
+
+    pub fn list_subtasks(&self, id: i64) -> Result<Vec<SubTask>> {
+        let mut statement = self.conn.prepare(
+            "
+            SELECT id, goal_id, title, completed 
+            FROM goal_subtasks
+            ORDER BY goal_id DESC, created_at DESC
+            ",
+        )?;
+
+        let subtasks = statement
+            .query_map([], |row| {
+                Ok(SubTask {
+                    id: row.get(0)?,
+                    goal_id: row.get(1)?,
+                    title: row.get(2)?,
+                    completed: row.get::<_, i64>(3)? != 0,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(subtasks)
     }
 
     pub fn toggle_goal(&self, id: i64) -> Result<()> {

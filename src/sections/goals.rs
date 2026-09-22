@@ -11,10 +11,19 @@ use ratatui_textarea::TextArea;
 
 use super::Section;
 
+#[derive(Debug, PartialEq, Clone, Default)]
+pub enum TextAreaType {
+    #[default]
+    Goal,
+    SubTask,
+}
+
 #[derive(Default)]
 pub struct Goals {
     list_state: ListState,
     textarea: Option<TextArea<'static>>,
+    textarea_type: TextAreaType,
+    current_goal_id: i64,
     error: Option<String>,
     popup: Option<Popup<'static>>,
 }
@@ -73,16 +82,33 @@ impl Section for Goals {
                 KeyCode::Enter => {
                     let title = textarea.lines().join(" ");
                     let title = title.trim();
-                    if title.is_empty() {
-                        self.error = Some("Please enter a goal title.".into());
-                    } else {
-                        match database.add_goal(title) {
-                            Ok(()) => {
-                                self.textarea = None;
-                                self.error = None;
+                    
+                    if self.textarea_type == TextAreaType::Goal {
+                        if title.is_empty() {
+                            self.error = Some("Please enter a goal title.".into());
+                        } else {
+                            match database.add_goal(title) {
+                                Ok(()) => {
+                                    self.textarea = None;
+                                    self.error = None;
+                                }
+                                Err(error) => {
+                                    self.error = Some(format!("Could not save goal: {error}"))
+                                }
                             }
-                            Err(error) => {
-                                self.error = Some(format!("Could not save goal: {error}"))
+                        }
+                    } else if self.textarea_type == TextAreaType::SubTask {
+                        if title.is_empty() {
+                            self.error = Some("Please enter a subtask title.".into());
+                        } else {
+                            match database.add_subtask(self.current_goal_id, title) {
+                                Ok(()) => {
+                                    self.textarea = None;
+                                    self.error = None;
+                                }
+                                Err(error) => {
+                                    self.error = Some(format!("Could not save subtask: {error}"))
+                                }
                             }
                         }
                     }
@@ -116,6 +142,30 @@ impl Section for Goals {
             textarea.set_placeholder_text("Enter a goal");
             textarea.set_cursor_line_style(Style::default());
             self.textarea = Some(textarea);
+            self.textarea_type = TextAreaType::Goal;
+            self.error = None;
+        } else if key.code == KeyCode::Char('A') {
+            if let Ok(goals) = database.list_goals() {
+                if let Some(goal) = self
+                    .list_state
+                    .selected()
+                    .and_then(|index| goals.get(index))
+                {
+                    self.current_goal_id = goal.id;
+                }
+            }
+
+            let mut textarea = TextArea::default();
+            textarea.set_block(
+                Block::default()
+                    .title("Add a subtask")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default()),
+            );
+            textarea.set_placeholder_text("Enter a subtask");
+            textarea.set_cursor_line_style(Style::default());
+            self.textarea = Some(textarea);
+            self.textarea_type = TextAreaType::SubTask;
             self.error = None;
         } else if key.code == KeyCode::Char(' ') {
             if let Ok(goals) = database.list_goals() {
@@ -138,6 +188,8 @@ impl Section for Goals {
                 .border_style(Style::new().red());
             self.popup = Some(popup);
             self.error = None;
+        } else if key.code == KeyCode::Enter {
+            
         }
     }
 
@@ -189,9 +241,13 @@ impl Section for Goals {
             Paragraph::new(
                 "[a] Add goal\n\
                \n\
+                [A] Add subtask\n\
+               \n\
                 [d] Delete goal\n\
                \n\
                 [Space] Complete\n\
+               \n\
+                [Enter] View subtasks\n\
                \n\
                 [j/↓] Next goal\n\
                 \n\
