@@ -30,7 +30,7 @@ impl Section for Dashboard {
             .spacing(3)
             .split(area);
         
-        let content = match database.list_tasks() {
+        let task_content = match database.list_tasks() {
             Ok(tasks) if tasks.is_empty() => "No tasks yet".to_string(),
             Ok(tasks) => tasks
                 .iter()
@@ -43,7 +43,7 @@ impl Section for Dashboard {
             Err(error) => format!("Could not load tasks: {error}"),
         };
 
-        let tasks = Paragraph::new(content)
+        let tasks = Paragraph::new(task_content)
             .block(
                 Block::default()
                     .title(" Tasks ")
@@ -52,10 +52,39 @@ impl Section for Dashboard {
             )
             .wrap(Wrap { trim: true });
 
-        let goals = Paragraph::new("Rust TUI\n██████░░░░ 60%\n\nRun a 5K\n███░░░░░░░ 30%")
+        let goal_content = match database.list_goals() {
+            Ok(goals) if goals.is_empty() => "No goals yet".to_string(),
+            Ok(goals) => goals
+                .iter().map(|goal| {
+                let mark = if goal.completed { "✓" } else { "○" };
+
+                let ratio = if goal.subtask_count > 0 {
+                    goal.progress as f64 / goal.subtask_count as f64
+                } else if goal.completed {
+                    1.0
+                } else {
+                    0.0
+                }
+                .clamp(0.0, 1.0);
+
+                let width = 20;
+                let filled = (ratio * width as f64).round() as usize;
+                let bar = format!(
+                    "{}{}",
+                    "█".repeat(filled),
+                    "░".repeat(width - filled),
+                );
+                format!("{mark} {}\n  {bar} {:.0}%", goal.title, ratio * 100.0)
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+            Err(error) => format!("Could not load goals: {error}"),
+        };
+
+        let goals = Paragraph::new(goal_content)
             .block(
                 Block::default()
-                    .title(" Goals ")
+                    .title(" goals ")
                     .borders(Borders::ALL)
                     .padding(Padding::proportional(1)),
             )
