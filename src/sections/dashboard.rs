@@ -74,7 +74,7 @@ impl Section for Dashboard {
                     "█".repeat(filled),
                     "░".repeat(width - filled),
                 );
-                format!("{mark} {}\n  {bar} {:.0}%", goal.title, ratio * 100.0)
+                format!("{mark} {}\n   {bar} {:.0}%", goal.title, ratio * 100.0)
                 })
                 .collect::<Vec<_>>()
                 .join("\n"),
@@ -84,7 +84,7 @@ impl Section for Dashboard {
         let goals = Paragraph::new(goal_content)
             .block(
                 Block::default()
-                    .title(" goals ")
+                    .title(" Goals ")
                     .borders(Borders::ALL)
                     .padding(Padding::proportional(1)),
             )

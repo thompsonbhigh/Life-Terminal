@@ -24,7 +24,7 @@ pub fn default_sections() -> Vec<Box<dyn Section>> {
         Box::new(dashboard::Dashboard),
         Box::new(tasks::Tasks::default()),
         Box::new(goals::Goals::default()),
-        Box::new(habits::Habits),
+        Box::new(habits::Habits::default()),
         Box::new(study::Study),
         Box::new(notes::Notes),
     ]

@@ -22,6 +22,14 @@ pub struct SubTask {
     pub completed: bool,
 }
 
+pub struct Habit {
+    pub id: i64,
+    pub title: String,
+    pub completed: bool,
+    pub streak: i64,
+    pub last_completed: String,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -57,6 +65,15 @@ impl Database {
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(goal_id) REFERENCES goals(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS habits (
+                id             INTEGER PRIMARY KEY,
+                title          TEXT NOT NULL,
+                completed      INTEGER NOT NULL DEFAULT 0,
+                streak         INTEGER NOT NULL DEFAULT 0,
+                last_completed TEXT NOT NULL DEFAULT NEVER,
+                created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            UPDATE habits SET completed = 0 WHERE date(last_completed) < date('now');
             ",
         )?;
 
@@ -201,6 +218,51 @@ impl Database {
         WHERE id = ?1
         ", params![goal_id])?;
         tx.commit();
+        Ok(())
+    }
+
+    pub fn add_habit(&self, title: &str) -> Result<()> {
+        self.conn
+            .execute("INSERT INTO habits (title) VALUES (?1)", params![title])?;
+        Ok(())
+    }
+
+    pub fn delete_habit(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM habits WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn list_habits(&self) -> Result<Vec<Habit>> {
+        let mut statement = self.conn.prepare(
+            "
+            SELECT id, title, completed, streak, last_completed
+            FROM habits
+            ORDER BY created_at DESC, id DESC
+            ",
+        )?;
+
+        let habits = statement
+            .query_map([], |row| {
+                Ok(Habit {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    completed: row.get::<_, i64>(2)? != 0,
+                    streak: row.get(3)?,
+                    last_completed: row.get(4).expect("REASON"),
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(habits)
+    }
+
+    pub fn toggle_habit(&self, id: i64) -> Result<()> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("UPDATE habits SET streak = streak + 1 WHERE id = ?1 AND last_completed = DATE('now', '-1 days')", params![id])?;
+        tx.execute("UPDATE habits SET streak = 1 WHERE id = ?1 AND (last_completed < DATE('now', '-1 days') OR last_completed = 'NEVER')", params![id])?;
+        tx.execute("UPDATE habits SET completed = NOT completed, last_completed = DATE('now') WHERE id = ?1", params![id])?;
+        tx.commit()?;
         Ok(())
     }
 }
