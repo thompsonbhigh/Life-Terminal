@@ -6,6 +6,7 @@ use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    text::Line,
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
     Frame,
 };
@@ -164,7 +165,7 @@ impl Section for Habits {
 
         let panes = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(30), Constraint::Length(25)])
+            .constraints([Constraint::Min(30), Constraint::Length(26)])
             .split(area);
 
         let block = Block::bordered()
@@ -184,7 +185,13 @@ impl Section for Habits {
                             Err(_) => habit.last_completed.clone(),
                         }
                     };
-                    ListItem::new(format!("{mark} {}\n  {}-day streak · Last completed {last_complete_date}", habit.title, habit.streak))
+                    ListItem::new(vec![
+                        Line::from(format!("{mark} {}", habit.title)),
+                        Line::styled(
+                            format!("  {}-day streak · Last completed {last_complete_date}", habit.streak),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ])
                 });
                 frame.render_stateful_widget(
                     List::new(items)

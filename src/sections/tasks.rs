@@ -153,7 +153,7 @@ impl Section for Tasks {
 
         let panes = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(30), Constraint::Length(25)])
+            .constraints([Constraint::Min(30), Constraint::Length(26)])
             .split(area);
 
         let block = Block::bordered()
