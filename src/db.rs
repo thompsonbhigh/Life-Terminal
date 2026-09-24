@@ -132,7 +132,7 @@ impl Database {
         let tx = self.conn.unchecked_transaction()?;
         tx.execute("INSERT INTO goal_subtasks (goal_id, title) VALUES (?1, ?2)", params![id, title])?;
         tx.execute("UPDATE goals SET subtask_count = subtask_count + 1 WHERE id = ?1", params![id])?;
-        tx.commit();
+        let _ = tx.commit();
         Ok(())
     }
 
@@ -146,7 +146,7 @@ impl Database {
         let tx = self.conn.unchecked_transaction()?;
         tx.execute("DELETE FROM goal_subtasks WHERE id = ?1", params![id])?;
         tx.execute("UPDATE goals SET subtask_count = subtask_count - 1 WHERE id = ?1", params![goal_id])?;
-        tx.commit();
+        let _ = tx.commit();
         Ok(())
     }
 
@@ -217,7 +217,7 @@ impl Database {
         )
         WHERE id = ?1
         ", params![goal_id])?;
-        tx.commit();
+        let _ = tx.commit();
         Ok(())
     }
 
@@ -262,7 +262,7 @@ impl Database {
         tx.execute("UPDATE habits SET streak = streak + 1 WHERE id = ?1 AND last_completed = DATE('now', '-1 days')", params![id])?;
         tx.execute("UPDATE habits SET streak = 1 WHERE id = ?1 AND (last_completed < DATE('now', '-1 days') OR last_completed = 'NEVER')", params![id])?;
         tx.execute("UPDATE habits SET completed = NOT completed, last_completed = DATE('now') WHERE id = ?1", params![id])?;
-        tx.commit()?;
+        let _ = tx.commit()?;
         Ok(())
     }
 }

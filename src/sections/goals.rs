@@ -4,7 +4,7 @@ use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Gauge, Clear, List, ListItem, ListState, Padding, Paragraph},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
     Frame,
 };
 use ratatui_textarea::TextArea;
@@ -260,7 +260,7 @@ impl Section for Goals {
 
         let subtasks = database.list_subtasks(self.current_goal_id);
         self.sync_selection_subtask(subtasks.as_ref().map_or(0, |subtasks| subtasks.len()));
-        let selected_subtask = subtasks.as_ref().ok().and_then(|subtasks| {
+        let _selected_subtask = subtasks.as_ref().ok().and_then(|subtasks| {
             self.list_state_subtask
                 .selected()
                 .and_then(|index| subtasks.get(index))

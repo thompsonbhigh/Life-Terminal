@@ -5,7 +5,6 @@ use ratatui::{
     buffer::{Buffer},
     widgets::{Block, Borders, Wrap, Clear, Widget, Paragraph},
     layout::{Rect},
-    Frame,
 };
 
 #[derive(Debug, Default, Setters)]

@@ -1,14 +1,11 @@
 use crate::db::Database;
 use crate::widgets::Popup;
 
-use derive_setters::Setters;
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Text},
-    buffer::{Buffer},
-    widgets::{Block, Borders, Wrap, Clear, List, Widget, ListItem, ListState, Padding, Paragraph},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph},
     Frame,
 };
 use ratatui_textarea::TextArea;
@@ -45,7 +42,7 @@ impl Section for Tasks {
     fn handle_event(&mut self, event: &Event, database: &Database) {
         let Event::Key(key) = event else { return };
 
-        if let Some(popup) = &mut self.popup {
+        if let Some(_popup) = &mut self.popup {
             match key.code {
                 KeyCode::Esc => {
                     self.popup = None;

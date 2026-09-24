@@ -109,7 +109,7 @@ impl App {
 
     fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
-        let task_count = self.database.list_tasks().map_or(0, |tasks| tasks.len());
+        let _task_count = self.database.list_tasks().map_or(0, |tasks| tasks.len());
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([

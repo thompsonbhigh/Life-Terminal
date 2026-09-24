@@ -15,11 +15,11 @@ impl Section for Study {
         "Study"
     }
 
-    fn handle_event(&mut self, _: &Event, database: &Database) {}
+    fn handle_event(&mut self, _: &Event, _database: &Database) {}
 
     fn update(&mut self) {}
 
-    fn render(&mut self, frame: &mut Frame, area: Rect, database: &Database) {
+    fn render(&mut self, frame: &mut Frame, area: Rect, _database: &Database) {
         frame.render_widget(
             Paragraph::new("Study\n\nSection coming soon")
                 .block(Block::default().borders(Borders::ALL)),
